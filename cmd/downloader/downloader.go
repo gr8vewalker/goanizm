@@ -12,18 +12,29 @@ import (
 )
 
 func main() {
-	// --- SEARCHING ---
+	results := search()
+	anime := selectAndDetail(results)
+	selectedEpisodes := selectEpisodes(anime.Episodes)
+	color.Red("Selected %v episodes", len(selectedEpisodes))
+}
+
+func search() []parser.Result {
 	color.Cyan("What do you want to download?")
+
 	query := cli.ReadLine()
 	results, err := parser.Search(query)
+
 	if err != nil {
 		log.Fatalln("Cannot done a search", err)
 	}
 
-	// --- ANIME SELECTION ---
+	return results
+}
+
+func selectAndDetail(results []parser.Result) parser.Anime {
 	color.Cyan("Select an anime: ")
 	for index, result := range results {
-		color.Magenta("%v - %v\n", index + 1, result.Name)
+		color.Magenta("%v - %v\n", index+1, result.Name)
 	}
 
 	selectionIndex, err := cli.ReadIntegerFiltered(func(i int) bool {
@@ -34,15 +45,14 @@ func main() {
 		log.Fatalln("Cannot do selection", err)
 	}
 
-	selected := results[selectionIndex - 1]
+	anime, err := parser.Details(results[selectionIndex-1])
 
-	// --- DETAILS OF SELECTED ANIME ---
-	anime, err := parser.Details(selected)
+	if err != nil {
+		log.Fatalln("Cannot get details", err)
+	}
+
 	color.Cyan("Selected anime: %v", color.MagentaString(anime.Name))
-
-	// --- EPISODE SELECTION ---
-	selectedEpisodes := selectEpisodes(anime.Episodes)
-	color.Red("Selected %v episodes", len(selectedEpisodes))
+	return anime
 }
 
 func selectEpisodes(episodes []parser.Episode) []int {
@@ -58,10 +68,10 @@ func selectEpisodes(episodes []parser.Episode) []int {
 		}
 		for index, episode := range episodes {
 			status := " "
-			if slices.Contains(selectedEpisodes, index + 1) {
+			if slices.Contains(selectedEpisodes, index+1) {
 				status = "x"
 			}
-			color.Magenta("[%v] %v - %v", status, index + 1, episode.Name)
+			color.Magenta("[%v] %v - %v", status, index+1, episode.Name)
 		}
 	}
 
