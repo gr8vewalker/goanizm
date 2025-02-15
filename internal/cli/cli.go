@@ -26,11 +26,11 @@ func ReadInteger() (int, error) {
 }
 
 func ReadIntegerFiltered(filter func(int) bool) (int, error) {
-	str := ReadLine()
-
 	var read int
 
 	for {
+		str := ReadLine()
+
 		i, err := strconv.Atoi(str)
 
 		if err != nil || (filter != nil && !filter(i)) { // try until a good integer input comes.
