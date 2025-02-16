@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"slices"
 	"strconv"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/gr8vewalker/goanizm/internal/cli"
+	"github.com/gr8vewalker/goanizm/internal/extractors"
 	"github.com/gr8vewalker/goanizm/internal/parser"
 )
 
@@ -15,7 +17,10 @@ func main() {
 	results := search()
 	anime := selectAndDetail(results)
 	selectedEpisodes := selectEpisodes(anime.Episodes)
-	parser.Videos(selectedEpisodes[0])
+	videosToDownload := selectVideos(selectedEpisodes)
+	for _, video := range videosToDownload {
+		fmt.Println(video.Name)
+	}
 }
 
 func search() []parser.Result {
@@ -107,4 +112,32 @@ func selectEpisodes(episodes []parser.Episode) []parser.Episode {
 		converted = append(converted, episodes[i-1])
 	}
 	return converted
+}
+
+func selectVideos(selectedEpisodes []parser.Episode) []extractors.Video {
+	var selectedVideos []extractors.Video
+
+	for _, episode := range selectedEpisodes {
+		videos, err := parser.Videos(episode)
+		if err != nil {
+			log.Fatalln("Cannot get videos", err)
+		}
+
+		color.Cyan("Select a video to download for '%v':", color.MagentaString(episode.Name))
+		for i, video := range videos {
+			color.Magenta("%v - %v", i+1, video.Name)
+		}
+
+		selection, err := cli.ReadIntegerFiltered(func(i int) bool {
+			return !(i < 1 || i > len(videos))
+		})
+
+		if err != nil {
+			log.Fatalln("Cannot do selection", err)
+		}
+
+		selectedVideos = append(selectedVideos, videos[selection-1])
+	}
+
+	return selectedVideos
 }

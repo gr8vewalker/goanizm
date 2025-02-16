@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/gr8vewalker/goanizm/internal/extractors"
 )
 
 type Result struct {
@@ -112,10 +113,14 @@ func Details(result Result) (Anime, error) {
 	return anime, nil
 }
 
-type Video struct {
+var client = &http.Client{}
+var noRedirectClient = &http.Client{
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
 }
 
-func Videos(episode Episode) ([]Video, error) {
+func Videos(episode Episode) ([]extractors.Video, error) {
 	resp, err := http.Get(episode.Link)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't get episode: %w", err)
@@ -130,13 +135,7 @@ func Videos(episode Episode) ([]Video, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
-	videos := []Video{}
-	client := &http.Client{}
-	noRedirectClient := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
+	videos := []extractors.Video{}
 
 	parseFansub := func(s *goquery.Selection) {
 		defer wg.Done()
@@ -181,7 +180,7 @@ func Videos(episode Episode) ([]Video, error) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				parsed := parseVideos(noRedirectClient, fansubName, strings.ReplaceAll(s.AttrOr("video", ""), "/video/", "/player/"))
+				parsed := parseVideos(fansubName, strings.ReplaceAll(s.AttrOr("video", ""), "/video/", "/player/"))
 				mu.Lock()
 				videos = append(videos, parsed...)
 				mu.Unlock()
@@ -203,7 +202,7 @@ func Videos(episode Episode) ([]Video, error) {
 	return videos, nil
 }
 
-func parseVideos(noRedirectClient *http.Client, fansubName string, link string) []Video {
+func parseVideos(fansubName string, link string) []extractors.Video {
 	req, err := http.NewRequest("GET", link, nil)
 	if err != nil {
 		log.Printf("[Parsing/Fansub: %v] Cannot create request for %v, skipping...\n", fansubName, link)
@@ -221,11 +220,15 @@ func parseVideos(noRedirectClient *http.Client, fansubName string, link string) 
 
 	playerLink := resp.Header["Location"][0]
 
-	var videos []Video
+	var videos []extractors.Video
 
 	switch {
 	case strings.Contains(playerLink, "anizmplayer.com"):
-		// TODO: extractor.
+		videos = append(videos, extractors.Aincrad(client, playerLink)...)
+	}
+
+	for _, video := range videos {
+		video.Name = "[" + fansubName + "] " + video.Name
 	}
 
 	return videos
