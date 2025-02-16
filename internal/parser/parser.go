@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gocolly/colly"
+	"github.com/PuerkitoBio/goquery"
 )
 
 type Result struct {
@@ -77,33 +77,35 @@ type Episode struct {
 }
 
 func Details(result Result) (Anime, error) {
-	c := colly.NewCollector()
+	resp, err := http.Get(result.Link)
+	if err != nil {
+		return Anime{}, fmt.Errorf("Couldn't get details: %w", err)
+	}
+	defer resp.Body.Close()
 
-	var anime Anime
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return Anime{}, fmt.Errorf("Couldn't get details: %w", err)
+	}
 
-	c.OnHTML("html", func(e *colly.HTMLElement) {
-		anime.Name = e.ChildText("h2.anizm_pageTitle > a")
-		anime.Link = result.Link
-		anime.Cover = "https://anizm.net" + e.ChildAttr("div.infoPosterImg > img", "src")
-		e.ForEach("span.dataValue > span.tag > span.label", func(i int, h *colly.HTMLElement) {
-			anime.Genre = append(anime.Genre, h.Text)
-		})
-		anime.Studio = e.ChildText("div.anizm_boxContent > span.dataTitle:contains(Stüdyo) + span")
-		anime.Description = e.ChildText("div.anizm_boxContent > div.infoDesc")
-		e.ForEach("div.episodeListTabContent div a", func(i int, h *colly.HTMLElement) {
-			anime.Episodes = append(anime.Episodes, Episode{
-				Name: strings.TrimSpace(h.Text),
-				Link: h.Attr("href"),
-			})
-		})
+	anime := Anime{
+		Name:        doc.Find("h2.anizm_pageTitle > a").First().Text(),
+		Link:        result.Link,
+		Cover:       "https://anizm.net" + doc.Find("div.infoPosterImg > img").First().AttrOr("src", ""),
+		Studio:      doc.Find("div.anizm_boxContent > span.dataTitle:contains(Stüdyo) + span").First().Text(),
+		Description: doc.Find("div.anizm_boxContent > div.infoDesc").First().Text(),
+	}
+
+	doc.Find("span.dataValue > span.tag > span.label").Each(func(i int, s *goquery.Selection) {
+		anime.Genre = append(anime.Genre, s.Text())
 	})
 
-
-	err := c.Visit(result.Link)
-
-	if err != nil {
-		return Anime{}, fmt.Errorf("Cannot get details of anime: %w", err)
-	}
+	doc.Find("div.episodeListTabContent div a").Each(func(i int, s *goquery.Selection) {
+		anime.Episodes = append(anime.Episodes, Episode{
+			Name: strings.TrimSpace(s.Text()),
+			Link: s.AttrOr("href", ""),
+		})
+	})
 
 	return anime, nil
 }

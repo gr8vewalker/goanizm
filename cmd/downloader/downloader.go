@@ -55,7 +55,7 @@ func selectAndDetail(results []parser.Result) parser.Anime {
 	return anime
 }
 
-func selectEpisodes(episodes []parser.Episode) []int {
+func selectEpisodes(episodes []parser.Episode) []parser.Episode {
 	color.Cyan("Please select episode(s) to download.")
 	color.Cyan("If you finished selecting enter 'yes'")
 
@@ -101,5 +101,10 @@ func selectEpisodes(episodes []parser.Episode) []int {
 		printEpisodeSelector(false)
 	}
 
-	return selectedEpisodes
+	// convert to parser.Episode
+	converted := []parser.Episode{}
+	for _, i := range selectedEpisodes {
+		converted = append(converted, episodes[i-1])
+	}
+	return converted
 }
