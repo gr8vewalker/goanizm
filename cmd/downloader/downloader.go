@@ -15,7 +15,7 @@ func main() {
 	results := search()
 	anime := selectAndDetail(results)
 	selectedEpisodes := selectEpisodes(anime.Episodes)
-	color.Red("Selected %v episodes", len(selectedEpisodes))
+	parser.Videos(selectedEpisodes[0])
 }
 
 func search() []parser.Result {
