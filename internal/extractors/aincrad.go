@@ -11,12 +11,13 @@ import (
 	"github.com/grafov/m3u8"
 )
 
-func Aincrad(client *http.Client, link string) []Video {
+func Aincrad(client *http.Client, link string, fansubName string) []Video {
 	hash := strings.Split(strings.Split(link, "video/")[1], "/")[0]
 	form := strings.NewReader(url.Values{
 		"hash": {hash},
 		"r":    {"https://anizm.net"},
 	}.Encode())
+
 	req, err := http.NewRequest("POST", "https://anizmplayer.com/player/index.php?data="+hash+"&do=getVideo", form)
 	if err != nil {
 		log.Printf("[Extractor/Aincrad] Cannot create request for %v, skipping...\n", req.URL)
@@ -46,17 +47,16 @@ func Aincrad(client *http.Client, link string) []Video {
 		return nil
 	}
 
-	
 	var securedLink string
 	if err := json.Unmarshal(data["securedLink"], &securedLink); err != nil {
 		log.Printf("[Extractor/Aincrad] Cannot parse body from %v, skipping...\n", req.URL)
 		return nil
 	}
 
-	return extractPlaylist(client, securedLink, link)
+	return extractPlaylist(client, securedLink, link, fansubName)
 }
 
-func extractPlaylist(client *http.Client, link string, referer string) []Video {
+func extractPlaylist(client *http.Client, link string, referer string, fansubName string) []Video {
 	req, err := http.NewRequest("POST", link, nil)
 	if err != nil {
 		log.Printf("[Extractor/Aincrad] Cannot create request for %v, skipping...\n", req.URL)
@@ -72,6 +72,7 @@ func extractPlaylist(client *http.Client, link string, referer string) []Video {
 		return nil
 	}
 	defer resp.Body.Close()
+
 	p, listType, err := m3u8.DecodeFrom(resp.Body, true)
 	if err != nil || listType != m3u8.MASTER {
 		log.Printf("[Extractor/Aincrad] Couldn't parse m3u8 playlist from %v, skipping...\n", req.URL)
@@ -84,8 +85,8 @@ func extractPlaylist(client *http.Client, link string, referer string) []Video {
 	for _, variant := range masterPlaylist.Variants {
 		if variant != nil {
 			video := Video{
-				Link: variant.URI,
-				Name: "Aincrad - " + variant.Resolution,
+				Link:    variant.URI,
+				Name:    "[" + fansubName + "] Aincrad - " + variant.Resolution,
 				Headers: make(http.Header),
 			}
 			for _, alternative := range variant.Alternatives {

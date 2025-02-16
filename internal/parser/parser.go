@@ -224,11 +224,7 @@ func parseVideos(fansubName string, link string) []extractors.Video {
 
 	switch {
 	case strings.Contains(playerLink, "anizmplayer.com"):
-		videos = append(videos, extractors.Aincrad(client, playerLink)...)
-	}
-
-	for _, video := range videos {
-		video.Name = "[" + fansubName + "] " + video.Name
+		videos = append(videos, extractors.Aincrad(client, playerLink, fansubName)...)
 	}
 
 	return videos

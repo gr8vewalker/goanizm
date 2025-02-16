@@ -1,26 +1,39 @@
 package main
 
 import (
-	"fmt"
 	"log"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/fatih/color"
 	"github.com/gr8vewalker/goanizm/internal/cli"
 	"github.com/gr8vewalker/goanizm/internal/extractors"
 	"github.com/gr8vewalker/goanizm/internal/parser"
+	ffmpeg_go "github.com/u2takey/ffmpeg-go"
 )
+
+type VideoDownloadInfo struct {
+	Video extractors.Video
+	Path  string
+}
 
 func main() {
 	results := search()
 	anime := selectAndDetail(results)
 	selectedEpisodes := selectEpisodes(anime.Episodes)
 	videosToDownload := selectVideos(selectedEpisodes)
+
+	var wg sync.WaitGroup
+
 	for _, video := range videosToDownload {
-		fmt.Println(video.Name)
+		wg.Add(1)
+		go download(&wg, video)
 	}
+
+	wg.Wait()
 }
 
 func search() []parser.Result {
@@ -114,8 +127,8 @@ func selectEpisodes(episodes []parser.Episode) []parser.Episode {
 	return converted
 }
 
-func selectVideos(selectedEpisodes []parser.Episode) []extractors.Video {
-	var selectedVideos []extractors.Video
+func selectVideos(selectedEpisodes []parser.Episode) []VideoDownloadInfo {
+	var selectedVideos []VideoDownloadInfo
 
 	for _, episode := range selectedEpisodes {
 		videos, err := parser.Videos(episode)
@@ -136,8 +149,59 @@ func selectVideos(selectedEpisodes []parser.Episode) []extractors.Video {
 			log.Fatalln("Cannot do selection", err)
 		}
 
-		selectedVideos = append(selectedVideos, videos[selection-1])
+		selectedVideo := videos[selection-1]
+
+		color.Cyan("Specify a path to download the video:")
+		path := cli.ReadLine()
+
+		selectedVideos = append(selectedVideos, VideoDownloadInfo{
+			Video: selectedVideo,
+			Path:  path,
+		})
 	}
 
 	return selectedVideos
+}
+
+func download(wg *sync.WaitGroup, video VideoDownloadInfo) {
+	defer wg.Done()
+
+	if video.Video.Audio == "" {
+		err := extractors.DownloadFile(video.Path, video.Video.Link, video.Video.Headers)
+		if err != nil {
+			log.Printf("Cannot download %v - %v", video.Video.Name, err)
+		}
+	} else {
+		// This means it's a playlist
+		videotmp := video.Path + ".video.tmp"
+		audiotmp := video.Path + ".audio.tmp"
+		err := extractors.DownloadPlaylist(videotmp, video.Video.Link, video.Video.Headers)
+		if err != nil {
+			log.Printf("Cannot download %v - %v", video.Video.Name, err)
+			return
+		}
+		err = extractors.DownloadPlaylist(audiotmp, video.Video.Audio, video.Video.Headers)
+		if err != nil {
+			log.Printf("Cannot download audio for %v - %v", video.Video.Name, err)
+			return
+		}
+
+		in1 := ffmpeg_go.Input(videotmp).Video()
+		in2 := ffmpeg_go.Input(audiotmp).Audio()
+		err = ffmpeg_go.Output(
+			[]*ffmpeg_go.Stream{in1, in2},
+			video.Path,
+			ffmpeg_go.KwArgs{
+				"c": "copy",
+			}).OverWriteOutput().ErrorToStdOut().Run()
+
+		err = os.Remove(videotmp)
+		if err != nil {
+			log.Printf("Cannot remove temporary file for %v - %v", video.Video.Name, err)
+		}
+		err = os.Remove(audiotmp)
+		if err != nil {
+			log.Printf("Cannot remove temporary file for %v - %v", video.Video.Name, err)
+		}
+	}
 }
