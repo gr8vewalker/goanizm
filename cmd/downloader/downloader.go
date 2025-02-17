@@ -43,7 +43,7 @@ func search() []parser.Result {
 	results, err := parser.Search(query)
 
 	if err != nil {
-		log.Fatalln("Cannot done a search", err)
+		log.Panicln("Cannot done a search: ", err)
 	}
 
 	return results
@@ -60,13 +60,13 @@ func selectAndDetail(results []parser.Result) parser.Anime {
 	})
 
 	if err != nil {
-		log.Fatalln("Cannot do selection", err)
+		log.Panicln("Cannot do selection: ", err)
 	}
 
 	anime, err := parser.Details(results[selectionIndex-1])
 
 	if err != nil {
-		log.Fatalln("Cannot get details", err)
+		log.Panicln("Cannot get details: ", err)
 	}
 
 	color.Cyan("Selected anime: %v", color.MagentaString(anime.Name))
@@ -133,7 +133,7 @@ func selectVideos(selectedEpisodes []parser.Episode) []VideoDownloadInfo {
 	for _, episode := range selectedEpisodes {
 		videos, err := parser.Videos(episode)
 		if err != nil {
-			log.Fatalln("Cannot get videos", err)
+			log.Panicln("Cannot get videos: ", err)
 		}
 
 		color.Cyan("Select a video to download for '%v':", color.MagentaString(episode.Name))
@@ -146,7 +146,7 @@ func selectVideos(selectedEpisodes []parser.Episode) []VideoDownloadInfo {
 		})
 
 		if err != nil {
-			log.Fatalln("Cannot do selection", err)
+			log.Panicln("Cannot do selection: ", err)
 		}
 
 		selectedVideo := videos[selection-1]

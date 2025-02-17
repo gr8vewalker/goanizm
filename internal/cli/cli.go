@@ -47,7 +47,7 @@ func ReadLine() string {
 	in := bufio.NewReader(os.Stdin)
 	line, err := in.ReadString('\n')
 	if err != nil {
-		log.Fatalln("Cannot read line from input", err)
+		log.Panicln("Cannot read line from input: ", err)
 	}
 	return strings.TrimSpace(line)
 }
