@@ -222,9 +222,17 @@ func parseVideos(fansubName string, link string) []extractors.Video {
 
 	var videos []extractors.Video
 
+	var extractor func(*http.Client, string, string) []extractors.Video
+
 	switch {
 	case strings.Contains(playerLink, "anizmplayer.com"):
-		videos = append(videos, extractors.Aincrad(client, playerLink, fansubName)...)
+		extractor = extractors.Aincrad
+	case strings.Contains(playerLink, "video.sibnet"):
+		extractor = extractors.Sibnet
+	}
+
+	if extractor != nil {
+		videos = append(videos, extractor(client, playerLink, fansubName)...)
 	}
 
 	return videos
